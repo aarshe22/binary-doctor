@@ -10,6 +10,15 @@ echo
 echo "== LLM =="
 curl -fsS "${OPENAI_BASE_URL:-http://rea-llm:8080/v1}/models" | jq . || true
 echo
+echo "== Broad Toolchain =="
+for tool in triage-specimen binwalk unblob unsquashfs qemu-aarch64-static qemu-arm-static qemu-img gdb-multiarch radare2 r2 jadx apktool yara floss volatility3; do
+  if command -v "$tool" >/dev/null 2>&1; then
+    printf '%-24s %s\n' "$tool" "$(command -v "$tool")"
+  else
+    printf '%-24s missing\n' "$tool"
+  fi
+done
+echo
 echo "== Hopper =="
 if [ -d "${HOPPER_PATH:-/opt/hopper}" ] && find "${HOPPER_PATH:-/opt/hopper}" -mindepth 1 -maxdepth 2 | grep -q .; then
   find "${HOPPER_PATH:-/opt/hopper}" -maxdepth 2 -type f -o -type l | head -20
