@@ -1,0 +1,12 @@
+/.env
+/models/*.gguf
+/models/*.tmp
+/models/*.part
+/workspace/
+/data/specimens/*
+!/data/specimens/.gitkeep
+!/data/specimens/README.md
+/config/rea-env.sh
+/config/opencode/auth.json
+/config/opencode/cache/
+/config/opencode/data/
