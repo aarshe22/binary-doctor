@@ -1,0 +1,167 @@
+name: examiner
+
+services:
+  model-fetch:
+    build:
+      context: ./models
+    image: examiner/model-fetch:latest
+    container_name: REA-model-fetch
+    restart: "no"
+    volumes:
+      - ./models:/models
+    environment:
+      QWEN_REPO_ID: ${QWEN_REPO_ID:-JonathanColetti/Qwen3.8-27B-Uncensored-GGUF}
+      QWEN_MODEL_FILE: ${QWEN_MODEL_FILE:-Qwen3.8-27B-Uncensored-Q4_K_M.gguf}
+      HF_TOKEN: ${HF_TOKEN:-}
+
+  rea-llm:
+    build:
+      context: ./llama
+      args:
+        LLAMA_CPP_REF: ${LLAMA_CPP_REF:-master}
+        LLAMA_CUDA_ARCHS: ${LLAMA_CUDA_ARCHS:-}
+        GGML_NATIVE: ${GGML_NATIVE:-OFF}
+    image: examiner/rea-llm:cuda
+    container_name: REA-llm
+    restart: unless-stopped
+    init: true
+    ipc: host
+    gpus: all
+    depends_on:
+      model-fetch:
+        condition: service_completed_successfully
+    ports:
+      - "${EXAMINER_BIND:-0.0.0.0}:${LLM_PORT:-12435}:8080"
+    volumes:
+      - "${QWEN_MODEL_PATH:-./models/Qwen3.8-27B-Uncensored-Q4_K_M.gguf}:/models/qwen.gguf:ro"
+    environment:
+      LLAMA_ARG_HOST: 0.0.0.0
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+    command:
+      - --model
+      - /models/qwen.gguf
+      - --alias
+      - qwen3.8-27b-uncensored
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8080"
+      - --ctx-size
+      - "${LLM_CTX_SIZE:-262144}"
+      - --n-gpu-layers
+      - "999"
+      - --threads
+      - "${LLM_THREADS:-10}"
+      - --parallel
+      - "${LLM_PARALLEL:-1}"
+      - --batch-size
+      - "${LLM_BATCH:-2048}"
+      - --ubatch-size
+      - "${LLM_UBATCH:-2048}"
+      - --flash-attn
+      - "on"
+      - --jinja
+      - --reasoning-preserve
+      - --metrics
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/v1/models"]
+      interval: 30s
+      timeout: 5s
+      retries: 10
+      start_period: 120s
+
+  rea:
+    build:
+      context: ./rea
+      args:
+        GHIDRA_VERSION: ${GHIDRA_VERSION:-12.1.4}
+        GHIDRA_DATE: ${GHIDRA_DATE:-20260921}
+        JADX_VERSION: ${JADX_VERSION:-1.5.6}
+        OPENCODE_VERSION: ${OPENCODE_VERSION:-latest}
+    image: examiner/rea:latest
+    container_name: REA
+    restart: unless-stopped
+    init: true
+    depends_on:
+      rea-llm:
+        condition: service_healthy
+    ports:
+      - "${EXAMINER_BIND:-0.0.0.0}:${REA_SSH_PORT:-2222}:22"
+    volumes:
+      - ./workspace:/workspace
+      - ./data/specimens:/data/specimens
+      - ./samples:/samples:ro
+      - ./config:/config
+      - /opt/hopper:/opt/hopper:ro
+    environment:
+      OPENAI_BASE_URL: http://rea-llm:8080/v1
+      OPENAI_API_KEY: none
+      OPENAI_MODEL: qwen3.8-27b-uncensored
+      GHIDRA_INSTALL_DIR: /opt/ghidra
+      GHIDRA_HEADLESS: /opt/ghidra/support/analyzeHeadless
+      REA_WORKSPACE: /workspace
+      REA_SPECIMENS: /data/specimens
+      HOPPER_PATH: /opt/hopper
+    working_dir: /workspace
+    tty: true
+    stdin_open: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SYS_PTRACE
+      - DAC_READ_SEARCH
+    healthcheck:
+      test: ["CMD-SHELL", "command -v rea >/dev/null && test -x /opt/ghidra/support/analyzeHeadless && (test -x /opt/ghidra/Ghidra/Features/Decompiler/os/linux_arm_64/decompile || test -x /opt/ghidra/Ghidra/Features/Decompiler/os/linux_x86_64/decompile) && curl -fsS http://rea-llm:8080/v1/models >/dev/null"]
+      interval: 1m
+      timeout: 20s
+      retries: 5
+      start_period: 60s
+
+  opencode:
+    image: examiner/rea:latest
+    container_name: REA-opencode
+    restart: unless-stopped
+    init: true
+    depends_on:
+      rea-llm:
+        condition: service_healthy
+      rea:
+        condition: service_healthy
+    command: ["tail", "-f", "/dev/null"]
+    volumes:
+      - ./workspace:/workspace
+      - ./data/specimens:/data/specimens
+      - ./samples:/samples:ro
+      - ./config:/config
+      - /opt/hopper:/opt/hopper:ro
+      - ./config/opencode:/root/.local/share/opencode
+      - ./opencode/opencode.json:/root/.config/opencode/opencode.json:ro
+      - ./opencode/opencode-v2.json:/root/.config/opencode/opencode-v2.json:ro
+    environment:
+      OPENAI_BASE_URL: http://rea-llm:8080/v1
+      OPENAI_API_KEY: none
+      OPENCODE_MODEL: examiner-qwen/qwen3.8-27b-uncensored
+      OPENAI_MODEL: qwen3.8-27b-uncensored
+      GHIDRA_INSTALL_DIR: /opt/ghidra
+      GHIDRA_HEADLESS: /opt/ghidra/support/analyzeHeadless
+      REA_WORKSPACE: /workspace
+      REA_SPECIMENS: /data/specimens
+      HOPPER_PATH: /opt/hopper
+      HOPPER_LAUNCHER_PATH: /opt/hopper/Hopper
+    working_dir: /workspace
+    tty: true
+    stdin_open: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SYS_PTRACE
+      - DAC_READ_SEARCH
