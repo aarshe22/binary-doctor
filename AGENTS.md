@@ -1,6 +1,6 @@
 # Agent Operating Guide
 
-This repository is an authorized reverse-engineering and firmware-analysis workbench. The default agent runtime is `REA-opencode`, which includes OpenCode, REA, Ghidra, Java, JADX/APKTool, radare2, Python reverse-engineering libraries, and access to the local Qwen GGUF model through `REA-llm`.
+This repository is an authorized reverse-engineering and firmware-analysis workbench. The default agent runtime is `REA-opencode`, which includes OpenCode, REA, Ghidra, Java, JADX/APKTool, radare2, cross-architecture emulation/debugging tools, firmware unpackers, Python reverse-engineering libraries, and access to the local Qwen GGUF model through `REA-llm`.
 
 ## Runtime Facts
 
@@ -57,6 +57,14 @@ rea doctor
 rea providers --json
 ```
 
+For broad first-pass static triage:
+
+```bash
+triage-specimen /data/specimens/<project-name>/originals/<target> /data/specimens/<project-name>
+```
+
+This creates report and string outputs under the project folder. It does not execute the target.
+
 Use Ghidra headless for batch import/decompile workflows:
 
 ```bash
@@ -77,6 +85,16 @@ jadx -d extracted/jadx originals/app.apk
 Use REA's Android commands when a structured agent workflow is better than raw CLI output.
 
 For PE/.NET, keep metadata extraction and decompiler outputs under `extracted/` or `notes/`. Do not execute unknown binaries inside the analysis container unless the user explicitly authorizes dynamic execution and the risks are understood.
+
+For firmware images, prefer layered static extraction first:
+
+```bash
+triage-specimen originals/firmware.bin .
+binwalk -Me originals/firmware.bin -C extracted/binwalk
+unblob originals/firmware.bin -o extracted/unblob
+```
+
+For cross-architecture binaries, use QEMU and `gdb-multiarch` only after static triage and only when dynamic execution is in scope.
 
 ## Safety and Scope
 
@@ -106,6 +124,8 @@ docker compose config --quiet
 docker compose ps
 docker exec REA-opencode opencode --version
 docker exec REA-opencode rea mcp doctor
+docker exec REA command -v triage-specimen
+docker exec REA command -v qemu-aarch64-static
 curl -fsS http://127.0.0.1:12435/v1/models
 ```
 
