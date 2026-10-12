@@ -1,0 +1,47 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "examiner-qwen/qwen3.8-27b-uncensored",
+  "mcp": {
+    "rea": {
+      "type": "local",
+      "command": [
+        "rea",
+        "mcp"
+      ],
+      "enabled": true,
+      "timeout": 30000,
+      "environment": {
+        "OPENAI_BASE_URL": "http://rea-llm:8080/v1",
+        "OPENAI_API_KEY": "none",
+        "OPENAI_MODEL": "qwen3.8-27b-uncensored",
+        "GHIDRA_INSTALL_DIR": "/opt/ghidra",
+        "GHIDRA_HEADLESS": "/opt/ghidra/support/analyzeHeadless",
+        "JAVA_HOME": "/usr/lib/jvm/default-java",
+        "HOPPER_PATH": "/opt/hopper",
+        "HOPPER_LAUNCHER_PATH": "/opt/hopper/Hopper"
+      }
+    }
+  },
+  "provider": {
+    "examiner-qwen": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Examiner Qwen GGUF",
+      "options": {
+        "baseURL": "http://rea-llm:8080/v1",
+        "apiKey": "none",
+        "timeout": 3600000,
+        "headerTimeout": 300000,
+        "chunkTimeout": 300000
+      },
+      "models": {
+        "qwen3.8-27b-uncensored": {
+          "name": "Qwen 3.8 27B Uncensored GGUF",
+          "limit": {
+            "context": 262144,
+            "output": 32768
+          }
+        }
+      }
+    }
+  }
+}
