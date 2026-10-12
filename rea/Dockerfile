@@ -14,47 +14,91 @@ ENV PATH=/opt/jadx/bin:/opt/ghidra/support:/opt/ghidra:/usr/local/bin:/usr/local
 RUN apt-get update && apt-get install -y --no-install-recommends \
     adb \
     apktool \
+    arj \
+    autoconf \
+    automake \
     binutils \
     binwalk \
+    brotli \
     bsdmainutils \
+    bsdextrautils \
+    bzip2 \
     ca-certificates \
     capstone-tool \
     clang \
     cmake \
+    cpio \
+    default-jre \
+    device-tree-compiler \
     curl \
     default-jdk \
+    dosfstools \
     elfutils \
+    ewf-tools \
     exiftool \
+    fakeroot \
+    fdisk \
     file \
+    foremost \
     g++ \
     gcc \
     gdb \
+    gdb-multiarch \
     git \
     gnupg \
+    gzip \
+    icoutils \
     iproute2 \
+    john \
     jq \
+    libarchive-tools \
+    libimage-exiftool-perl \
+    libtool \
+    lhasa \
     ltrace \
+    lz4 \
+    lzip \
+    lzop \
     make \
+    mtd-utils \
     nasm \
     netcat-openbsd \
+    nmap \
     openssh-server \
+    p7zip-full \
     patch \
     patchelf \
     pipx \
+    protobuf-compiler \
     python3 \
     python3-dev \
     python3-pip \
     python3-venv \
+    qemu-system \
+    qemu-user \
+    qemu-user-static \
+    qemu-utils \
     radare2 \
+    ripgrep \
     rsync \
+    sleuthkit \
     software-properties-common \
+    squashfs-tools \
+    srecord \
     strace \
+    swig \
+    testdisk \
+    u-boot-tools \
+    unar \
     unzip \
     vim-tiny \
     wget \
     xxd \
+    xz-utils \
     yara \
+    zlib1g-dev \
     zip \
+    zstd \
     && rm -rf /var/lib/apt/lists/*
 
 RUN set -eux; \
@@ -73,14 +117,26 @@ RUN python3 -m venv /opt/re-venv \
     && /opt/re-venv/bin/pip install --upgrade pip wheel setuptools \
     && /opt/re-venv/bin/pip install \
       angr \
+      androguard \
+      apkid \
       capstone \
+      cxxfilt \
+      dnfile \
+      flare-floss \
       ghidra-bridge \
+      intervaltree \
       lief \
+      macholib \
+      oletools \
       pefile \
       pwntools \
       pyelftools \
+      python-magic \
       r2pipe \
+      ropper \
+      smda \
       unicorn \
+      unblob \
       volatility3 \
       yara-python \
     && ln -s /opt/re-venv/bin/* /usr/local/bin/
@@ -111,10 +167,12 @@ RUN rea setup --yes --skill
 RUN mkdir -p /run/sshd /workspace /samples /config /opt/hopper \
     && useradd -m -s /bin/bash examiner
 
+COPY yara-rules /opt/yara-rules
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 COPY analyze-ghidra /usr/local/bin/analyze-ghidra
 COPY rea-doctor /usr/local/bin/rea-doctor
-RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/analyze-ghidra /usr/local/bin/rea-doctor
+COPY triage-specimen /usr/local/bin/triage-specimen
+RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/analyze-ghidra /usr/local/bin/rea-doctor /usr/local/bin/triage-specimen
 
 EXPOSE 22
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
