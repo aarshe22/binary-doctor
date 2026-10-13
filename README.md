@@ -73,6 +73,14 @@ Recommended use:
 
 Specimen contents are ignored by Git by default. Keep the project README, hashes, and case notes under the project folder, but be deliberate before committing any specimen-derived material.
 
+To enter the prepared analysis shell directly:
+
+```bash
+./shell.sh
+```
+
+That lands inside `REA-opencode` at `/data/specimens`, with REA/Ghidra/model environment variables loaded and a short reminder of the case folder layout.
+
 ## OpenCode
 
 The repo includes a preconfigured OpenCode runtime container. It uses the same image as `REA`, so local MCP tools can see REA, Ghidra, Java, JADX/APKTool, and the rest of the analysis toolchain.
