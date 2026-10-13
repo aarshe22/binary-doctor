@@ -104,6 +104,16 @@ unblob originals/firmware.bin -o extracted/unblob
 
 For cross-architecture binaries, use QEMU and `gdb-multiarch` only after static triage and only when dynamic execution is in scope.
 
+For raw ROMs, boot ROMs, cartridge dumps, and flat blobs, do not assume ELF/PE headers. Identify the CPU and load address first, then use `analyze-raw-ghidra` with an explicit language ID, for example:
+
+```bash
+analyze-raw-ghidra originals/nes-prg.bin 6502:LE:16:default nes-prg 0x8000
+analyze-raw-ghidra originals/z80.bin z80:LE:16:default z80-rom 0x0000
+analyze-raw-ghidra originals/m68k.bin 68000:BE:32:default m68k-rom 0x000000
+```
+
+Use radare2 and target disassemblers as corroborating views for older CPU families.
+
 ## Safety and Scope
 
 - Assume specimens may be hostile.

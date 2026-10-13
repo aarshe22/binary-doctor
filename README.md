@@ -136,10 +136,12 @@ The triage helper records hashes, file metadata, ExifTool output, Binwalk signat
 - Java: default JDK from Ubuntu 24.04.
 - Android/static app RE: `jadx`, `apktool`, `adb`.
 - Static RE: `file`, `binutils`, `elfutils`, `radare2`, `capstone`, `yara`, `binwalk`, `exiftool`, `ripgrep`, `xxd`, `srecord`.
+- Multi-architecture disassembly: GNU `binutils-multiarch`, target binutils for ARM, AVR, MIPS, PowerPC, RISC-V, SPARC, plus LLVM `llvm-objdump`.
 - Firmware/filesystem unpacking: `binwalk`, `unblob`, `squashfs-tools`, `mtd-utils`, `u-boot-tools`, `device-tree-compiler`, `sleuthkit`, `testdisk`, `foremost`, `libarchive-tools`.
 - Archive/compression conversion: `7z`, `unar`, `arj`, `lhasa`, `xz`, `zstd`, `lz4`, `lzip`, `lzop`, `brotli`, `gzip`, `bzip2`, `cpio`, `zip`, `unzip`.
 - Cross-architecture emulation/debugging: `qemu-user`, `qemu-user-static`, `qemu-system`, `qemu-utils`, `gdb`, `gdb-multiarch`, `strace`, `ltrace`.
 - Managed and mobile analysis: `jadx`, `apktool`, `androguard`, `apkid`, `oletools`, `dnfile`, `macholib`.
+- Retro/ROM analysis: Ghidra raw import helper, radare2, `cc65`/`ca65`/`ld65`, `xa65`, `z80dasm`, `sdcc`, `gputils`, and baseline binary conversion tools.
 - Malware triage helpers: `flare-floss`, baseline local YARA rules under `/opt/yara-rules`, `john`, `nmap`.
 - Python RE: `angr`, `lief`, `pwntools`, `r2pipe`, `ghidra-bridge`, `volatility3`, `yara-python`, `pefile`, `pyelftools`, `unicorn`, `ropper`, `smda`, `python-magic`.
 
@@ -152,6 +154,35 @@ docker exec -it REA analyze-ghidra /data/specimens/project-name/originals/firmwa
 ```
 
 Outputs land in the mounted workspace unless the tool or project folder specifies a more specific output path.
+
+For raw ROMs and flat binaries, use `analyze-raw-ghidra` and provide a Ghidra language ID:
+
+```bash
+docker exec -it REA analyze-raw-ghidra \
+  /data/specimens/project-name/originals/nes-prg.bin \
+  6502:LE:16:default \
+  nes-prg \
+  0x8000
+```
+
+Other common examples:
+
+```text
+z80:LE:16:default
+68000:BE:32:default
+8051:BE:16:default
+avr8:LE:16:default
+ARM:LE:32:v7
+AARCH64:LE:64:v8A
+x86:LE:32:default
+x86:LE:64:default
+```
+
+Ghidra language IDs vary by installed processor module. To list them:
+
+```bash
+docker exec -it REA find /opt/ghidra/Ghidra/Processors -name '*.ldefs' -print
+```
 
 ## REA
 

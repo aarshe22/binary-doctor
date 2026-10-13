@@ -18,6 +18,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     autoconf \
     automake \
     binutils \
+    binutils-arm-none-eabi \
+    binutils-avr \
+    binutils-mips-linux-gnu \
+    binutils-multiarch \
+    binutils-powerpc-linux-gnu \
+    binutils-riscv64-linux-gnu \
+    binutils-sparc64-linux-gnu \
     binwalk \
     brotli \
     bsdmainutils \
@@ -25,6 +32,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     bzip2 \
     ca-certificates \
     capstone-tool \
+    cc65 \
     clang \
     cmake \
     cpio \
@@ -46,16 +54,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gdb-multiarch \
     git \
     gnupg \
+    gputils \
     gzip \
     icoutils \
     iproute2 \
     john \
     jq \
+    lld \
     libarchive-tools \
     libimage-exiftool-perl \
     libtool \
     lhasa \
     ltrace \
+    llvm \
     lz4 \
     lzip \
     lzop \
@@ -81,6 +92,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     radare2 \
     ripgrep \
     rsync \
+    sdcc \
     sleuthkit \
     software-properties-common \
     squashfs-tools \
@@ -96,8 +108,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     xxd \
     xz-utils \
     yara \
+    yasm \
     zlib1g-dev \
     zip \
+    xa65 \
+    z80dasm \
     zstd \
     && rm -rf /var/lib/apt/lists/*
 
@@ -170,9 +185,10 @@ RUN mkdir -p /run/sshd /workspace /samples /config /opt/hopper \
 COPY yara-rules /opt/yara-rules
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 COPY analyze-ghidra /usr/local/bin/analyze-ghidra
+COPY analyze-raw-ghidra /usr/local/bin/analyze-raw-ghidra
 COPY rea-doctor /usr/local/bin/rea-doctor
 COPY triage-specimen /usr/local/bin/triage-specimen
-RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/analyze-ghidra /usr/local/bin/rea-doctor /usr/local/bin/triage-specimen
+RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/analyze-ghidra /usr/local/bin/analyze-raw-ghidra /usr/local/bin/rea-doctor /usr/local/bin/triage-specimen
 
 EXPOSE 22
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [ "$#" -lt 2 ]; then
+  cat >&2 <<'EOF'
+usage: analyze-raw-ghidra /path/to/blob LANGUAGE_ID [project-name] [base-address]
+
+Examples:
+  analyze-raw-ghidra originals/nes-prg.bin 6502:LE:16:default nes-prg 0x8000
+  analyze-raw-ghidra originals/z80.bin z80:LE:16:default z80-rom 0x0000
+  analyze-raw-ghidra originals/m68k.bin 68000:BE:32:default m68k-rom 0x000000
+
+List likely language IDs:
+  find /opt/ghidra/Ghidra/Processors -name '*.ldefs' -print
+EOF
+  exit 2
+fi
+
+target="$1"
+language="$2"
+project="${3:-$(basename "$target").raw-ghidra}"
+base="${4:-0x0}"
+project_dir="/data/specimens/${project}/ghidra"
+mkdir -p "$project_dir"
+
+exec "${GHIDRA_HEADLESS:-/opt/ghidra/support/analyzeHeadless}" \
+  "$project_dir" "$project" \
+  -import "$target" \
+  -processor "$language" \
+  -loader BinaryLoader \
+  -loader-baseAddr "$base" \
+  -overwrite \
+  -analysisTimeoutPerFile 1800 \
+  -log "$project_dir/${project}.log" \
+  -scriptlog "$project_dir/${project}.script.log"

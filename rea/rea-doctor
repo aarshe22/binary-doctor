@@ -11,7 +11,7 @@ echo "== LLM =="
 curl -fsS "${OPENAI_BASE_URL:-http://rea-llm:8080/v1}/models" | jq . || true
 echo
 echo "== Broad Toolchain =="
-for tool in triage-specimen binwalk unblob unsquashfs qemu-aarch64-static qemu-arm-static qemu-img gdb-multiarch radare2 r2 jadx apktool yara floss volatility3; do
+for tool in triage-specimen analyze-raw-ghidra binwalk unblob unsquashfs qemu-aarch64-static qemu-arm-static qemu-img gdb-multiarch objdump llvm-objdump radare2 r2 jadx apktool yara floss vol cc65 ca65 ld65 xa z80dasm; do
   if command -v "$tool" >/dev/null 2>&1; then
     printf '%-24s %s\n' "$tool" "$(command -v "$tool")"
   else
