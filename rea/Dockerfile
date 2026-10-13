@@ -4,6 +4,7 @@ ARG GHIDRA_VERSION=12.1.4
 ARG GHIDRA_DATE=20260921
 ARG JADX_VERSION=1.5.6
 ARG OPENCODE_VERSION=latest
+ARG OPENCODE_PACKAGE=@opencode/cli
 ARG REA_AGENTS_VERSION=latest
 ARG TARGETARCH
 ENV DEBIAN_FRONTEND=noninteractive
@@ -128,7 +129,8 @@ RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
     && apt-get update && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/* \
     && npm install --global npm@latest \
-    && npm install --global --allow-scripts=opencode-ai "rea-agents@${REA_AGENTS_VERSION}" "opencode-ai@${OPENCODE_VERSION}"
+    && npm install --global --allow-scripts="${OPENCODE_PACKAGE}" "rea-agents@${REA_AGENTS_VERSION}" "${OPENCODE_PACKAGE}@${OPENCODE_VERSION}" \
+    && if [ -f "/usr/lib/node_modules/${OPENCODE_PACKAGE}/postinstall.mjs" ]; then node "/usr/lib/node_modules/${OPENCODE_PACKAGE}/postinstall.mjs"; fi
 
 RUN python3 -m venv /opt/re-venv \
     && /opt/re-venv/bin/pip install --upgrade pip wheel setuptools \

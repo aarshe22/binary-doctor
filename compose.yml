@@ -79,6 +79,7 @@ services:
         GHIDRA_DATE: ${GHIDRA_DATE:-20260921}
         JADX_VERSION: ${JADX_VERSION:-1.5.6}
         OPENCODE_VERSION: ${OPENCODE_VERSION:-latest}
+        OPENCODE_PACKAGE: ${OPENCODE_PACKAGE:-@opencode/cli}
         REA_AGENTS_VERSION: ${REA_AGENTS_VERSION:-latest}
     image: examiner/rea:latest
     container_name: REA
@@ -155,6 +156,7 @@ services:
       OPENAI_API_KEY: none
       OPENCODE_AUTO_UPDATE: ${OPENCODE_AUTO_UPDATE:-1}
       OPENCODE_VERSION: ${OPENCODE_VERSION:-latest}
+      OPENCODE_PACKAGE: ${OPENCODE_PACKAGE:-@opencode/cli}
       REA_AGENTS_VERSION: ${REA_AGENTS_VERSION:-latest}
       OPENCODE_MODEL: examiner-qwen/qwen3.8-27b-uncensored
       OPENAI_MODEL: qwen3.8-27b-uncensored

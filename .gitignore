@@ -10,3 +10,8 @@
 /config/opencode/auth.json
 /config/opencode/cache/
 /config/opencode/data/
+/deps/*
+!/deps/.gitkeep
+!/deps/README.md
+!/deps/repos.tsv
+!/deps/LOCK.md

@@ -2,11 +2,15 @@
 set -euo pipefail
 
 opencode_version="${OPENCODE_VERSION:-latest}"
+opencode_package="${OPENCODE_PACKAGE:-@opencode/cli}"
 rea_version="${REA_AGENTS_VERSION:-latest}"
 
 echo "OpenCode before update: $(opencode --version 2>/dev/null || echo not-installed)"
-echo "Updating opencode-ai@${opencode_version} and rea-agents@${rea_version}..."
+echo "Updating ${opencode_package}@${opencode_version} and rea-agents@${rea_version}..."
 npm install --global npm@latest
-npm install --global --allow-scripts=opencode-ai "opencode-ai@${opencode_version}" "rea-agents@${rea_version}"
+npm install --global --allow-scripts="${opencode_package}" "${opencode_package}@${opencode_version}" "rea-agents@${rea_version}"
+if [ -f "/usr/lib/node_modules/${opencode_package}/postinstall.mjs" ]; then
+  node "/usr/lib/node_modules/${opencode_package}/postinstall.mjs"
+fi
 echo "OpenCode after update: $(opencode --version 2>/dev/null || echo not-installed)"
 rea --version 2>/dev/null || true
