@@ -4,21 +4,28 @@ This repository is an authorized reverse-engineering and firmware-analysis workb
 
 ## Runtime Facts
 
+- Host project root on the main deployment: `/opt/examiner`
 - Model endpoint inside Docker: `http://rea-llm:8080/v1`
+- Host model endpoint: `http://127.0.0.1:12435/v1`
 - Model id: `qwen3.8-27b-uncensored`
 - OpenCode model id: `examiner-qwen/qwen3.8-27b-uncensored`
 - REA MCP command: `rea mcp`
-- OpenCode update helper: `update-opencode`
+- OpenCode update helper inside the container: `update-opencode`
+- OpenCode host update wrapper: `./update-opencode.sh`
 - Ghidra install: `/opt/ghidra`
 - Ghidra headless command: `/opt/ghidra/support/analyzeHeadless`
 - Persistent specimen mount: `/data/specimens`
 - Shared scratch workspace: `/workspace`
 
+## Prime Directive
+
+Work only on authorized targets. Treat specimens as potentially hostile and potentially sensitive. Default to static analysis. Do not execute unknown binaries, upload samples, contact public scanning services, or exfiltrate specimen-derived data unless the human explicitly authorizes that action.
+
 ## Primary Workflow
 
-Work inside `/data/specimens/<project-name>` whenever analyzing a real target. Use `/workspace` only for temporary scratch, generic tooling experiments, or outputs that are not tied to a specific case.
+Work inside `/data/specimens/<case-name>` for real targets. Use `/workspace` only for generic scratch work or tooling experiments.
 
-The preferred entry point for a human operator is:
+The human entry point is:
 
 ```bash
 ./shell.sh
@@ -26,15 +33,10 @@ The preferred entry point for a human operator is:
 
 It opens an interactive shell inside `REA-opencode` at `/data/specimens`.
 
-`REA-opencode` refreshes OpenCode and REA packages on container startup when
-`OPENCODE_AUTO_UPDATE=1`. Use `./update-opencode.sh` from the repo root for a live
-container update, or `./update-opencode.sh rebuild` when the baked image itself
-should be rebuilt from the latest configured package versions.
-
-Recommended project layout:
+Recommended case layout:
 
 ```text
-/data/specimens/<project-name>/
+/data/specimens/<case-name>/
   README.md
   originals/
   extracted/
@@ -43,74 +45,47 @@ Recommended project layout:
   reports/
 ```
 
-Create a project `README.md` before or during first triage. It should record the target description, source, scope, authorization notes, hashes of original files, commands run, important findings, and open questions.
+Create or maintain a case `README.md` with target description, source, authorization/scope notes, hashes, commands run, findings, and open questions.
 
 ## Evidence Rules
 
-- Treat files under `originals/` as immutable evidence.
-- Do not overwrite, patch, strip, unpack in place, or rename original specimens unless the user explicitly asks.
-- Put derived files in `extracted/`, `ghidra/`, `notes/`, or `reports/`.
-- Record hashes before analysis when practical:
+- Treat `originals/` as immutable.
+- Never overwrite, strip, patch, unpack in place, or rename original specimens unless explicitly asked.
+- Put derived files under `extracted/`, `ghidra/`, `notes/`, or `reports/`.
+- Hash originals before deeper analysis when practical:
 
 ```bash
 sha256sum originals/* > notes/originals.sha256
 ```
 
-- Prefer repeatable commands and save important command transcripts or summaries in `notes/`.
-- If a tool mutates a file, run it on a copy under `extracted/`.
+- Save important commands, versions, and observations in `notes/`.
+- Use copies for destructive transforms.
 
-## REA and Ghidra
+## First-Pass Analysis
 
-Use REA first when it can answer the question through MCP or CLI. It exposes the intended agent tool surface and keeps analysis results structured.
-
-Useful checks:
+Start with metadata and static triage:
 
 ```bash
-rea mcp doctor
-rea doctor
-rea providers --json
+triage-specimen /data/specimens/<case-name>/originals/<target> /data/specimens/<case-name>
 ```
 
-For broad first-pass static triage:
+Then choose deeper tooling based on target type:
+
+- ELF/PE/Mach-O: Ghidra, radare2, binutils, LLVM, angr, lief.
+- APK/DEX/JAR: JADX, APKTool, Androguard, APKID, REA Android tools.
+- Firmware: Binwalk, unblob, squashfs-tools, mtd-utils, u-boot-tools, device-tree-compiler.
+- Disk or memory artifacts: sleuthkit, testdisk, volatility3.
+- Raw ROMs/flat binaries: `analyze-raw-ghidra`, radare2, target disassemblers, known load address and CPU family.
+
+## Ghidra Rules
+
+Use the helper for normal binaries:
 
 ```bash
-triage-specimen /data/specimens/<project-name>/originals/<target> /data/specimens/<project-name>
+analyze-ghidra /data/specimens/<case-name>/originals/<target> <project-name>
 ```
 
-This creates report and string outputs under the project folder. It does not execute the target.
-
-Use Ghidra headless for batch import/decompile workflows:
-
-```bash
-analyze-ghidra /data/specimens/<project-name>/originals/<target> <project-name>
-```
-
-For direct Ghidra invocation, keep projects and output under the project folder, preferably `ghidra/`.
-
-## Android and Managed Targets
-
-For APKs, start with static inspection:
-
-```bash
-apktool d originals/app.apk -o extracted/apktool
-jadx -d extracted/jadx originals/app.apk
-```
-
-Use REA's Android commands when a structured agent workflow is better than raw CLI output.
-
-For PE/.NET, keep metadata extraction and decompiler outputs under `extracted/` or `notes/`. Do not execute unknown binaries inside the analysis container unless the user explicitly authorizes dynamic execution and the risks are understood.
-
-For firmware images, prefer layered static extraction first:
-
-```bash
-triage-specimen originals/firmware.bin .
-binwalk -Me originals/firmware.bin -C extracted/binwalk
-unblob originals/firmware.bin -o extracted/unblob
-```
-
-For cross-architecture binaries, use QEMU and `gdb-multiarch` only after static triage and only when dynamic execution is in scope.
-
-For raw ROMs, boot ROMs, cartridge dumps, and flat blobs, do not assume ELF/PE headers. Identify the CPU and load address first, then use `analyze-raw-ghidra` with an explicit language ID, for example:
+Use the raw helper only when format headers are absent and the CPU/load address are known or reasonably inferred:
 
 ```bash
 analyze-raw-ghidra originals/nes-prg.bin 6502:LE:16:default nes-prg 0x8000
@@ -118,39 +93,95 @@ analyze-raw-ghidra originals/z80.bin z80:LE:16:default z80-rom 0x0000
 analyze-raw-ghidra originals/m68k.bin 68000:BE:32:default m68k-rom 0x000000
 ```
 
-Use radare2 and target disassemblers as corroborating views for older CPU families.
+Keep Ghidra projects and exports under the case `ghidra/` folder whenever possible.
 
-## Safety and Scope
+## OpenCode And REA
 
-- Assume specimens may be hostile.
-- Do not execute unknown binaries as a default analysis step.
-- Prefer static analysis, metadata extraction, string search, unpacking, and decompilation first.
-- Do not contact external services with specimen data unless the user explicitly authorizes it.
-- Do not upload samples, hashes, strings, firmware fragments, or reports to public services.
-- Keep proprietary tools optional. Hopper and IDA are not bundled; use them only when the user provides licensed installs/configuration.
+OpenCode is preconfigured to use the local llama.cpp model and REA MCP. Prefer REA tools when they provide structured binary-analysis state. Use raw CLI tools when they are clearer, faster, or easier to reproduce.
+
+Useful checks:
+
+```bash
+opencode --version
+rea doctor
+rea mcp doctor
+rea providers --json
+```
+
+`REA-opencode` refreshes OpenCode and REA packages on container startup when:
+
+```text
+OPENCODE_AUTO_UPDATE=1
+```
+
+Use this from the repo root for a live update:
+
+```bash
+./update-opencode.sh
+```
+
+Use this when the baked image itself should be rebuilt from configured package versions:
+
+```bash
+./update-opencode.sh rebuild
+```
+
+For reproducible cases, pin `OPENCODE_VERSION` and `REA_AGENTS_VERSION` in `.env`.
+
+## Dynamic Analysis
+
+Dynamic execution is not a default step.
+
+Before dynamic analysis:
+
+- Confirm the human wants execution/emulation.
+- Prefer QEMU user/static or system emulation over host execution.
+- Keep network disabled or isolated unless explicitly required.
+- Document the exact command, environment, input files, and outputs.
+- Run against copies under `extracted/`, not originals.
 
 ## Git Hygiene
 
-Specimen contents are intentionally ignored by Git:
+Do not commit specimens, firmware, binaries, extracted case data, generated Ghidra projects, memory captures, strings, or final reports unless the human explicitly asks.
+
+Allowed by default:
+
+- Compose and Docker files
+- Scripts
+- Documentation
+- Placeholder `.gitkeep` files
+- Non-sensitive sample scaffolding
+
+Ignored by design:
 
 ```text
+models/*.gguf
 data/specimens/*
 ```
 
-Do not force-add binaries, firmware, case data, extracted files, or generated Ghidra projects without explicit user approval. It is okay to commit documentation, scripts, Compose files, and placeholder files.
-
 ## Verification
 
-Before declaring the stack ready after changes, run:
+Before declaring stack changes complete, run:
 
 ```bash
 docker compose config --quiet
 docker compose ps
-docker exec REA-opencode opencode --version
-docker exec REA-opencode rea mcp doctor
-docker exec REA command -v triage-specimen
-docker exec REA command -v qemu-aarch64-static
-curl -fsS http://127.0.0.1:12435/v1/models
+./scripts/smoke-test.sh
 ```
 
-Expected REA MCP result: healthy, 170 tools, 6 prompts.
+Expected:
+
+- `REA-llm` responds to `/v1/models`.
+- `REA` is healthy.
+- `REA-opencode` starts.
+- `opencode --version` works.
+- Ghidra headless is present.
+- REA MCP reports a healthy tool surface.
+- Broad tooling is available, including `triage-specimen`, `analyze-raw-ghidra`, `qemu-aarch64-static`, `gdb-multiarch`, `unblob`, `llvm-objdump`, `z80dasm`, `ca65`, `ld65`, and `vol`.
+
+## Documentation Contract
+
+- Keep [README.md](./README.md) as the durable project overview.
+- Keep [QUICKSTART.md](./QUICKSTART.md) as the shortest operator path.
+- Keep this file focused on agent behavior and analysis rules.
+- Keep [PLAN.md](./PLAN.md) as the implementation and hardening roadmap.

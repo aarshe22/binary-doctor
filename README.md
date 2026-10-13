@@ -1,203 +1,221 @@
-# Examiner REA Stack
+# Binary Doctor
 
-`/opt/examiner` is a portable reverse-engineering stack for authorized binary, firmware, mobile, memory, and archive analysis.
+Binary Doctor is a portable Docker Compose workbench for authorized reverse engineering, firmware inspection, software decompilation, and security review.
 
-It keeps the model fetcher, model server, analysis workbench, and OpenCode runtime separate:
+It is designed for a simple operating model:
 
-- `model-fetch`: downloads the Qwen GGUF into repo-local `./models` if it is not already present.
-- `REA-llm`: direct `llama-server` built for NVIDIA CUDA, serving the existing Qwen 3.8 27B Uncensored GGUF over an OpenAI-compatible API.
-- `REA`: REA, Ghidra, Java, Node.js, Python RE libraries, and common static/dynamic analysis tools.
-- `REA-opencode`: preconfigured OpenCode runtime using the same fully tooled REA image, pointed at `REA-llm`, with REA MCP enabled.
-- `./data/specimens`: persistent host-side specimen and case workspace, mounted into containers at `/data/specimens`.
+1. Put each case under `./data/specimens/<case-name>`.
+2. Start the stack with Docker Compose.
+3. Enter the prepared analysis shell with `./shell.sh`.
+4. Use OpenCode + REA + Ghidra + the local GGUF model to inspect, decompile, unpack, and document the target.
 
-## Start
+The stack is built around direct `llama.cpp` serving of the Qwen 3.8 27B Uncensored GGUF. It avoids Docker Model Runner and Ollama so the GGUF is served with explicit runtime flags, full context configuration, OpenAI-compatible HTTP, and predictable tool access from the analysis containers.
+
+## What Runs
+
+- `REA-model-fetch`: downloads the configured GGUF into `./models`.
+- `REA-llm`: builds and runs `llama-server` with CUDA and an OpenAI-compatible API.
+- `REA`: reverse-engineering container with REA, Ghidra, Java, Python RE libraries, firmware tools, Android tools, emulation/debugging tools, and multi-architecture disassemblers.
+- `REA-opencode`: interactive OpenCode container preconfigured to use the local Qwen model and REA MCP.
+- `./data/specimens`: host-persistent case workspace mounted at `/data/specimens`.
+
+## Quick Start
+
+See [QUICKSTART.md](./QUICKSTART.md) for the shortest path.
+
+The compact version:
 
 ```bash
-cd /opt/examiner
 cp .env.example .env
+./scripts/fetch-weights.sh
 docker compose up -d --build
+./shell.sh
 ```
 
-On a fresh machine, `docker compose up -d --build` will build the containers and download the configured GGUF into `./models`. If you want to pull the weights explicitly first:
+Inside the shell:
 
 ```bash
-./scripts/fetch-weights.sh
+mkdir -p my-case/{originals,extracted,ghidra,notes,reports}
+triage-specimen my-case/originals/target.bin my-case
+opencode
 ```
 
-The model endpoint will be:
+## Model Endpoint
 
-```text
-http://gx10:12435/v1
-```
-
-The stable model id is:
-
-```text
-qwen3.8-27b-uncensored
-```
-
-The OpenAI-compatible endpoint is:
+Host endpoint:
 
 ```text
 http://localhost:12435/v1
 ```
 
-Inside Compose, services use:
+Compose-internal endpoint:
 
 ```text
 http://rea-llm:8080/v1
 ```
 
-## Specimen Workspace
-
-Use `./data/specimens` for real analysis projects. It persists outside Docker and is mounted read-write into both `REA` and `REA-opencode`:
+Stable model id:
 
 ```text
-host:      ./data/specimens
-container: /data/specimens
+qwen3.8-27b-uncensored
 ```
 
-Create one subfolder per project or case:
-
-```bash
-mkdir -p data/specimens/project-name/{originals,extracted,ghidra,notes,reports}
-```
-
-Recommended use:
-
-- `originals/`: source artifacts kept immutable, such as firmware, binaries, APKs, archives, disk images, memory captures, and vendor packages.
-- `extracted/`: unpacked or decoded artifacts created during analysis.
-- `ghidra/`: Ghidra projects, decompiler output, symbols, and headless-analysis exports.
-- `notes/`: working notes, triage logs, commands, hypotheses, and indicators.
-- `reports/`: polished findings and handoff material.
-
-Specimen contents are ignored by Git by default. Keep the project README, hashes, and case notes under the project folder, but be deliberate before committing any specimen-derived material.
-
-To enter the prepared analysis shell directly:
-
-```bash
-./shell.sh
-```
-
-That lands inside `REA-opencode` at `/data/specimens`, with REA/Ghidra/model environment variables loaded and a short reminder of the case folder layout.
-
-## OpenCode
-
-The repo includes a preconfigured OpenCode runtime container. It uses the same image as `REA`, so local MCP tools can see REA, Ghidra, Java, JADX/APKTool, and the rest of the analysis toolchain.
-
-Interactive shell:
-
-```bash
-docker exec -it REA-opencode bash
-cd /data/specimens/project-name
-```
-
-Run OpenCode directly:
-
-```bash
-docker exec -it REA-opencode opencode
-```
-
-The default OpenCode config is mounted from:
-
-```text
-./opencode/opencode.json
-```
-
-It points at:
+OpenCode model id:
 
 ```text
 examiner-qwen/qwen3.8-27b-uncensored
 ```
 
-REA MCP is enabled in that same config:
+Default llama.cpp settings include:
+
+- `--ctx-size 262144`
+- `--n-gpu-layers 999`
+- `--flash-attn on`
+- `--jinja`
+- `--reasoning-preserve`
+- `--parallel 1`
+- `--batch-size 2048`
+- `--ubatch-size 2048`
+
+Adjust these in `.env` when a host needs different performance or memory behavior.
+
+## Case Workspace
+
+Every real target should live under:
 
 ```text
-rea mcp
+./data/specimens/<case-name>
 ```
 
-An OpenCode v2-shaped config is also included at `./opencode/opencode-v2.json`.
-
-## OpenCode Updates
-
-`OPENCODE_VERSION=latest` and `REA_AGENTS_VERSION=latest` are the defaults in `.env.example`.
-At image build time, Docker installs those versions into the REA image. The `REA-opencode`
-container also runs `update-opencode` on startup by default, controlled by:
+Recommended layout:
 
 ```text
+data/specimens/<case-name>/
+  README.md
+  originals/
+  extracted/
+  ghidra/
+  notes/
+  reports/
+```
+
+Use `originals/` for untouched source evidence. Put all derived files in the other folders. `data/specimens/*` is ignored by Git so case material is not accidentally published with the tooling.
+
+## Included Tooling
+
+Core workflow:
+
+- REA and REA MCP
+- OpenCode
+- Ghidra headless and native decompiler
+- llama.cpp `llama-server`
+- Java/JDK
+- Node.js/npm
+
+Static and decompilation:
+
+- Ghidra
+- radare2
+- binutils and `binutils-multiarch`
+- LLVM tools
+- Capstone
+- `file`, `xxd`, `strings`, `objdump`, `readelf`
+- JADX, APKTool, Androguard, APKID
+- `oletools`, `dnfile`, `macholib`, `pefile`, `pyelftools`
+
+Firmware and archive work:
+
+- Binwalk
+- unblob
+- squashfs-tools
+- mtd-utils
+- u-boot-tools
+- device-tree-compiler
+- sleuthkit, testdisk, foremost
+- 7z, unar, arj, lhasa, gzip, bzip2, xz, zstd, lz4, lzip, lzop, brotli, cpio, zip
+
+Emulation and debugging:
+
+- qemu-user
+- qemu-user-static
+- qemu-system
+- qemu-utils
+- gdb and gdb-multiarch
+- strace and ltrace
+
+Retro and raw ROM support:
+
+- Ghidra raw import helper
+- 6502 examples via Ghidra language IDs
+- z80dasm
+- cc65, ca65, ld65
+- xa65
+- sdcc
+- gputils
+- srecord
+
+Python RE:
+
+- angr
+- lief
+- pwntools
+- r2pipe
+- ghidra-bridge
+- volatility3
+- yara-python
+- unicorn
+- ropper
+- smda
+- python-magic
+
+## OpenCode and REA Updates
+
+OpenCode and REA package versions are controlled by `.env`:
+
+```text
+OPENCODE_VERSION=latest
+REA_AGENTS_VERSION=latest
 OPENCODE_AUTO_UPDATE=1
 ```
 
-That keeps the interactive OpenCode container current whenever it is recreated:
+`REA-opencode` runs `update-opencode` on startup when `OPENCODE_AUTO_UPDATE=1`.
 
-```bash
-docker compose up -d --force-recreate opencode
-```
-
-To update a running container without rebuilding the whole image:
+Update the live OpenCode container:
 
 ```bash
 ./update-opencode.sh
 ```
 
-To rebuild the baked image from current package releases:
+Rebuild the image with current package releases:
 
 ```bash
 ./update-opencode.sh rebuild
 ```
 
-Pin `OPENCODE_VERSION` or `REA_AGENTS_VERSION` in `.env` if you need a repeatable forensic environment for a specific case.
+For repeatable forensic work, pin `OPENCODE_VERSION` and `REA_AGENTS_VERSION` in `.env`.
 
-## First-Pass Triage
+## Ghidra
 
-Use `triage-specimen` before deeper work. It is static-only by default and writes a Markdown report plus extracted string files:
-
-```bash
-docker exec -it REA triage-specimen /data/specimens/project-name/originals/firmware.bin /data/specimens/project-name
-```
-
-The triage helper records hashes, file metadata, ExifTool output, Binwalk signatures, ELF/PE quick checks, baseline YARA hits, and ASCII/UTF-16 string output. For APK/JAR/DEX targets, it also runs JADX/APKTool into the project `extracted/` folder.
-
-## Tools Included
-
-- REA: installed from the `rea-agents` npm package.
-- OpenCode: installed from `opencode-ai`, with the default model set to the local Qwen GGUF server.
-- Ghidra: installed under `/opt/ghidra`; headless entry point is `/opt/ghidra/support/analyzeHeadless`.
-- Java: default JDK from Ubuntu 24.04.
-- Android/static app RE: `jadx`, `apktool`, `adb`.
-- Static RE: `file`, `binutils`, `elfutils`, `radare2`, `capstone`, `yara`, `binwalk`, `exiftool`, `ripgrep`, `xxd`, `srecord`.
-- Multi-architecture disassembly: GNU `binutils-multiarch`, target binutils for ARM, AVR, MIPS, PowerPC, RISC-V, SPARC, plus LLVM `llvm-objdump`.
-- Firmware/filesystem unpacking: `binwalk`, `unblob`, `squashfs-tools`, `mtd-utils`, `u-boot-tools`, `device-tree-compiler`, `sleuthkit`, `testdisk`, `foremost`, `libarchive-tools`.
-- Archive/compression conversion: `7z`, `unar`, `arj`, `lhasa`, `xz`, `zstd`, `lz4`, `lzip`, `lzop`, `brotli`, `gzip`, `bzip2`, `cpio`, `zip`, `unzip`.
-- Cross-architecture emulation/debugging: `qemu-user`, `qemu-user-static`, `qemu-system`, `qemu-utils`, `gdb`, `gdb-multiarch`, `strace`, `ltrace`.
-- Managed and mobile analysis: `jadx`, `apktool`, `androguard`, `apkid`, `oletools`, `dnfile`, `macholib`.
-- Retro/ROM analysis: Ghidra raw import helper, radare2, `cc65`/`ca65`/`ld65`, `xa65`, `z80dasm`, `sdcc`, `gputils`, and baseline binary conversion tools.
-- Malware triage helpers: `flare-floss`, baseline local YARA rules under `/opt/yara-rules`, `john`, `nmap`.
-- Python RE: `angr`, `lief`, `pwntools`, `r2pipe`, `ghidra-bridge`, `volatility3`, `yara-python`, `pefile`, `pyelftools`, `unicorn`, `ropper`, `smda`, `python-magic`.
-
-## Ghidra Headless
-
-Ghidra's supported batch interface is `analyzeHeadless`. A helper is included:
+Analyze a normal binary:
 
 ```bash
-docker exec -it REA analyze-ghidra /data/specimens/project-name/originals/firmware.bin firmware-project
+docker exec -it REA analyze-ghidra /data/specimens/my-case/originals/target.bin my-case
 ```
 
-Outputs land in the mounted workspace unless the tool or project folder specifies a more specific output path.
-
-For raw ROMs and flat binaries, use `analyze-raw-ghidra` and provide a Ghidra language ID:
+Analyze a raw ROM or flat binary:
 
 ```bash
 docker exec -it REA analyze-raw-ghidra \
-  /data/specimens/project-name/originals/nes-prg.bin \
+  /data/specimens/my-case/originals/nes-prg.bin \
   6502:LE:16:default \
   nes-prg \
   0x8000
 ```
 
-Other common examples:
+Useful language examples:
 
 ```text
+6502:LE:16:default
 z80:LE:16:default
 68000:BE:32:default
 8051:BE:16:default
@@ -208,74 +226,48 @@ x86:LE:32:default
 x86:LE:64:default
 ```
 
-Ghidra language IDs vary by installed processor module. To list them:
+List installed Ghidra processor language definitions:
 
 ```bash
 docker exec -it REA find /opt/ghidra/Ghidra/Processors -name '*.ldefs' -print
 ```
 
-## REA
-
-Run:
-
-```bash
-docker exec -it REA rea-doctor
-docker exec -it REA rea doctor
-docker exec -it REA-opencode rea mcp doctor
-docker exec -it REA triage-specimen /data/specimens/project-name/originals/target.bin /data/specimens/project-name
-```
-
-The container image bakes in REA's bundled reverse-engineering skill. The OpenCode container mounts `./opencode/opencode.json`, which registers REA's local MCP server as `rea`.
-
 ## Hopper
 
-Hopper is proprietary. This image does not redistribute it. If you have a licensed Linux Hopper install, place or mount it at:
+Hopper is proprietary and is not redistributed here. If you have a licensed Linux Hopper installation, mount or place it at:
 
 ```text
 /opt/hopper
 ```
 
-The `REA` container mounts that path read-only. REA can then detect/use Hopper if its installed CLI/GUI paths are compatible.
+The Compose file mounts that path read-only into `REA` and `REA-opencode`.
 
-## Model Serving Notes
+## Portability
 
-This stack avoids Docker Model Runner and Ollama. It builds upstream `llama.cpp` directly with:
+This repo is intended to be pushed without model weights or specimens:
 
-- CUDA enabled
-- multi-platform Docker support for `linux/arm64` and `linux/amd64`
-- CUDA architecture `121` by default on ARM64 GB10 / DGX Spark class machines
-- CUDA architectures `75;80;86;89;90` by default on x64 NVIDIA hosts
-- `llama-server` OpenAI-compatible HTTP API
-- full 262144-token context by default
-- flash attention
-- Jinja chat template handling
-- reasoning preservation
-- one long-context slot by default
-- a stable API alias: `qwen3.8-27b-uncensored`
+- `./models/*.gguf` is ignored.
+- `./data/specimens/*` is ignored.
+- Docker builds Ghidra, REA, OpenCode, Python tooling, and llama.cpp into containers.
+- New machines can clone, fetch weights, and run `docker compose up -d --build`.
 
-For agentic binary analysis, `LLM_PARALLEL=1` is the conservative starting point. Increase it only if you need concurrent users and can tolerate less effective KV/cache room per request.
+The Dockerfiles support `linux/arm64` and `linux/amd64`. On ARM64, the REA image compiles Ghidra's native decompiler. On x64, it uses Ghidra's bundled Linux x86_64 decompiler.
 
-Set `LLAMA_CUDA_ARCHS` in `.env` if you want a narrower or newer x64 CUDA build, for example `LLAMA_CUDA_ARCHS=89` for Ada-only, or a semicolon-separated list for a reusable image. `GGML_NATIVE=OFF` is the portable default; set it to `ON` only when building and running on the same CPU family.
+## Verification
 
-## Portability Notes
-
-The repo is intended to be pushed to a private GitHub repository without the model weights. `./models/*.gguf` is ignored by Git. A new host can clone the repo, run `cp .env.example .env`, optionally set `HF_TOKEN`, then run:
+After build or update:
 
 ```bash
-docker compose up -d --build
+docker compose config --quiet
+docker compose ps
+./scripts/smoke-test.sh
 ```
 
-The only large external artifact pulled at runtime is the GGUF. Ghidra, REA, Java, Python tooling, llama.cpp, and OpenCode are built into containers.
+Expected healthy state:
 
-Specimens under `./data/specimens/*` are ignored by Git by default. Copy or sync them separately when moving between machines, unless you intentionally create a private evidence repository with the proper access controls.
-
-Hopper and IDA remain optional and external because they are proprietary/licensed. Mount a compatible licensed Linux Hopper installation at `/opt/hopper` on the host if you want REA to use it. If you later add IDA MCP, provide its registration JSON and set `REA_IDA_MCP_CONFIG` explicitly.
-
-For x64 hosts, Ghidra uses the upstream bundled `linux_x86_64` native decompiler. For ARM64 hosts, the Docker build compiles Ghidra's included decompiler source into `linux_arm_64/decompile`.
-
-## Sources Used
-
-- REA documentation says REA is distributed as `rea-agents`, supports MCP/CLI, and uses existing Ghidra/Hopper installations.
-- Ghidra documentation identifies `analyzeHeadless` as the supported command-line analyzer for importing, processing, scripting, and batch analysis.
-- The Qwen GGUF model card exposes the existing GGUF layout and llama.cpp usage path.
-- Current GB10 guidance points at direct llama.cpp builds for `sm_121` when serving GGUF efficiently.
+- `REA-llm` responds at `/v1/models`.
+- `REA` healthcheck passes.
+- `REA-opencode` starts and reports an OpenCode version.
+- Ghidra headless is installed.
+- REA MCP reports the expected tool surface.
+- Core tools such as `triage-specimen`, `analyze-raw-ghidra`, `qemu-aarch64-static`, `gdb-multiarch`, `unblob`, `llvm-objdump`, `z80dasm`, and `vol` are available.
