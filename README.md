@@ -1,6 +1,6 @@
 # Examiner REA Stack
 
-`/opt/examiner` is a portable reverse-engineering stack for authorized binary and firmware analysis.
+`/opt/examiner` is a portable reverse-engineering stack for authorized binary, firmware, mobile, memory, and archive analysis.
 
 It keeps the model fetcher, model server, analysis workbench, and OpenCode runtime separate:
 
@@ -110,6 +110,16 @@ rea mcp
 
 An OpenCode v2-shaped config is also included at `./opencode/opencode-v2.json`.
 
+## First-Pass Triage
+
+Use `triage-specimen` before deeper work. It is static-only by default and writes a Markdown report plus extracted string files:
+
+```bash
+docker exec -it REA triage-specimen /data/specimens/project-name/originals/firmware.bin /data/specimens/project-name
+```
+
+The triage helper records hashes, file metadata, ExifTool output, Binwalk signatures, ELF/PE quick checks, baseline YARA hits, and ASCII/UTF-16 string output. For APK/JAR/DEX targets, it also runs JADX/APKTool into the project `extracted/` folder.
+
 ## Tools Included
 
 - REA: installed from the `rea-agents` npm package.
@@ -117,9 +127,13 @@ An OpenCode v2-shaped config is also included at `./opencode/opencode-v2.json`.
 - Ghidra: installed under `/opt/ghidra`; headless entry point is `/opt/ghidra/support/analyzeHeadless`.
 - Java: default JDK from Ubuntu 24.04.
 - Android/static app RE: `jadx`, `apktool`, `adb`.
-- Static RE: `file`, `binutils`, `elfutils`, `radare2`, `capstone`, `yara`, `binwalk`, `exiftool`.
-- Dynamic RE: `gdb`, `strace`, `ltrace`.
-- Python RE: `angr`, `lief`, `pwntools`, `r2pipe`, `ghidra-bridge`, `volatility3`, `yara-python`, `pefile`, `pyelftools`, `unicorn`.
+- Static RE: `file`, `binutils`, `elfutils`, `radare2`, `capstone`, `yara`, `binwalk`, `exiftool`, `ripgrep`, `xxd`, `srecord`.
+- Firmware/filesystem unpacking: `binwalk`, `unblob`, `squashfs-tools`, `mtd-utils`, `u-boot-tools`, `device-tree-compiler`, `sleuthkit`, `testdisk`, `foremost`, `libarchive-tools`.
+- Archive/compression conversion: `7z`, `unar`, `arj`, `lhasa`, `xz`, `zstd`, `lz4`, `lzip`, `lzop`, `brotli`, `gzip`, `bzip2`, `cpio`, `zip`, `unzip`.
+- Cross-architecture emulation/debugging: `qemu-user`, `qemu-user-static`, `qemu-system`, `qemu-utils`, `gdb`, `gdb-multiarch`, `strace`, `ltrace`.
+- Managed and mobile analysis: `jadx`, `apktool`, `androguard`, `apkid`, `oletools`, `dnfile`, `macholib`.
+- Malware triage helpers: `flare-floss`, baseline local YARA rules under `/opt/yara-rules`, `john`, `nmap`.
+- Python RE: `angr`, `lief`, `pwntools`, `r2pipe`, `ghidra-bridge`, `volatility3`, `yara-python`, `pefile`, `pyelftools`, `unicorn`, `ropper`, `smda`, `python-magic`.
 
 ## Ghidra Headless
 
@@ -139,6 +153,7 @@ Run:
 docker exec -it REA rea-doctor
 docker exec -it REA rea doctor
 docker exec -it REA-opencode rea mcp doctor
+docker exec -it REA triage-specimen /data/specimens/project-name/originals/target.bin /data/specimens/project-name
 ```
 
 The container image bakes in REA's bundled reverse-engineering skill. The OpenCode container mounts `./opencode/opencode.json`, which registers REA's local MCP server as `rea`.
