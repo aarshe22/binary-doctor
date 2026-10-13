@@ -118,6 +118,36 @@ rea mcp
 
 An OpenCode v2-shaped config is also included at `./opencode/opencode-v2.json`.
 
+## OpenCode Updates
+
+`OPENCODE_VERSION=latest` and `REA_AGENTS_VERSION=latest` are the defaults in `.env.example`.
+At image build time, Docker installs those versions into the REA image. The `REA-opencode`
+container also runs `update-opencode` on startup by default, controlled by:
+
+```text
+OPENCODE_AUTO_UPDATE=1
+```
+
+That keeps the interactive OpenCode container current whenever it is recreated:
+
+```bash
+docker compose up -d --force-recreate opencode
+```
+
+To update a running container without rebuilding the whole image:
+
+```bash
+./update-opencode.sh
+```
+
+To rebuild the baked image from current package releases:
+
+```bash
+./update-opencode.sh rebuild
+```
+
+Pin `OPENCODE_VERSION` or `REA_AGENTS_VERSION` in `.env` if you need a repeatable forensic environment for a specific case.
+
 ## First-Pass Triage
 
 Use `triage-specimen` before deeper work. It is static-only by default and writes a Markdown report plus extracted string files:

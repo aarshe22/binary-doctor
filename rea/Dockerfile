@@ -4,6 +4,7 @@ ARG GHIDRA_VERSION=12.1.4
 ARG GHIDRA_DATE=20260921
 ARG JADX_VERSION=1.5.6
 ARG OPENCODE_VERSION=latest
+ARG REA_AGENTS_VERSION=latest
 ARG TARGETARCH
 ENV DEBIAN_FRONTEND=noninteractive
 ENV GHIDRA_INSTALL_DIR=/opt/ghidra
@@ -126,7 +127,8 @@ RUN set -eux; \
 RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
     && apt-get update && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/* \
-    && npm install --global npm@latest rea-agents@latest opencode-ai@${OPENCODE_VERSION}
+    && npm install --global npm@latest \
+    && npm install --global --allow-scripts=opencode-ai "rea-agents@${REA_AGENTS_VERSION}" "opencode-ai@${OPENCODE_VERSION}"
 
 RUN python3 -m venv /opt/re-venv \
     && /opt/re-venv/bin/pip install --upgrade pip wheel setuptools \
@@ -188,7 +190,8 @@ COPY analyze-ghidra /usr/local/bin/analyze-ghidra
 COPY analyze-raw-ghidra /usr/local/bin/analyze-raw-ghidra
 COPY rea-doctor /usr/local/bin/rea-doctor
 COPY triage-specimen /usr/local/bin/triage-specimen
-RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/analyze-ghidra /usr/local/bin/analyze-raw-ghidra /usr/local/bin/rea-doctor /usr/local/bin/triage-specimen
+COPY update-opencode /usr/local/bin/update-opencode
+RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/analyze-ghidra /usr/local/bin/analyze-raw-ghidra /usr/local/bin/rea-doctor /usr/local/bin/triage-specimen /usr/local/bin/update-opencode
 
 EXPOSE 22
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

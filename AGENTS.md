@@ -8,6 +8,7 @@ This repository is an authorized reverse-engineering and firmware-analysis workb
 - Model id: `qwen3.8-27b-uncensored`
 - OpenCode model id: `examiner-qwen/qwen3.8-27b-uncensored`
 - REA MCP command: `rea mcp`
+- OpenCode update helper: `update-opencode`
 - Ghidra install: `/opt/ghidra`
 - Ghidra headless command: `/opt/ghidra/support/analyzeHeadless`
 - Persistent specimen mount: `/data/specimens`
@@ -24,6 +25,11 @@ The preferred entry point for a human operator is:
 ```
 
 It opens an interactive shell inside `REA-opencode` at `/data/specimens`.
+
+`REA-opencode` refreshes OpenCode and REA packages on container startup when
+`OPENCODE_AUTO_UPDATE=1`. Use `./update-opencode.sh` from the repo root for a live
+container update, or `./update-opencode.sh rebuild` when the baked image itself
+should be rebuilt from the latest configured package versions.
 
 Recommended project layout:
 
