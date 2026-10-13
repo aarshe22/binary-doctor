@@ -2,7 +2,13 @@
 set -euo pipefail
 
 mkdir -p /workspace /samples /config /data/specimens /run/sshd
-chown -R examiner:examiner /workspace /config /data/specimens
+chown -R examiner:examiner /workspace /data/specimens
+chown examiner:examiner /config
+
+if [ -d /root/.local/share/opencode ]; then
+  chown -R root:root /root/.local/share/opencode
+  chmod -R u+rwX /root/.local/share/opencode
+fi
 
 if [ ! -f /config/rea-env.sh ]; then
   cat >/config/rea-env.sh <<'EOF'
