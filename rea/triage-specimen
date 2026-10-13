@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [ "$#" -lt 1 ]; then
+  echo "usage: triage-specimen /path/to/specimen [project-dir]" >&2
+  exit 2
+fi
+
+target="$1"
+if [ ! -f "$target" ]; then
+  echo "not a regular file: $target" >&2
+  exit 2
+fi
+
+project="${2:-/data/specimens/triage-$(date -u +%Y%m%dT%H%M%SZ)}"
+mkdir -p "$project"/{notes,extracted,reports}
+
+base="$(basename "$target")"
+report="$project/reports/${base}.triage.md"
+strings_dir="$project/extracted/${base}.strings"
+mkdir -p "$strings_dir"
+
+sha256="$(sha256sum "$target" | awk '{print $1}')"
+sha1="$(sha1sum "$target" | awk '{print $1}')"
+md5="$(md5sum "$target" | awk '{print $1}')"
+
+{
+  echo "# Triage: ${base}"
+  echo
+  echo "- Source: \`${target}\`"
+  echo "- UTC: \`$(date -u +%Y-%m-%dT%H:%M:%SZ)\`"
+  echo "- Size: \`$(stat -c '%s' "$target")\` bytes"
+  echo "- SHA256: \`${sha256}\`"
+  echo "- SHA1: \`${sha1}\`"
+  echo "- MD5: \`${md5}\`"
+  echo
+  echo "## File Type"
+  echo
+  echo '```text'
+  file "$target" || true
+  echo '```'
+  echo
+  echo "## ExifTool"
+  echo
+  echo '```text'
+  exiftool "$target" 2>/dev/null || true
+  echo '```'
+  echo
+  echo "## Binwalk"
+  echo
+  echo '```text'
+  binwalk "$target" 2>/dev/null || true
+  echo '```'
+  echo
+  echo "## ELF/PE Quick Checks"
+  echo
+  echo '```text'
+  readelf -h "$target" 2>/dev/null || true
+  objdump -f "$target" 2>/dev/null || true
+  rabin2 -I "$target" 2>/dev/null || true
+  echo '```'
+  echo
+  echo "## YARA"
+  echo
+  echo '```text'
+  yara -w -r /opt/yara-rules/index.yar "$target" 2>/dev/null || true
+  echo '```'
+} >"$report"
+
+strings -a -n 6 "$target" >"$strings_dir/ascii.txt" 2>/dev/null || true
+strings -a -el -n 6 "$target" >"$strings_dir/utf16le.txt" 2>/dev/null || true
+
+case "$target" in
+  *.apk)
+    mkdir -p "$project/extracted/apktool" "$project/extracted/jadx"
+    apktool d -f "$target" -o "$project/extracted/apktool/${base}" >/dev/null 2>&1 || true
+    jadx -d "$project/extracted/jadx/${base}" "$target" >/dev/null 2>&1 || true
+    ;;
+  *.jar|*.dex)
+    mkdir -p "$project/extracted/jadx"
+    jadx -d "$project/extracted/jadx/${base}" "$target" >/dev/null 2>&1 || true
+    ;;
+esac
+
+echo "Triage written to $report"
