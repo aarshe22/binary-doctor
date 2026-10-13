@@ -17,6 +17,14 @@ This repository is an authorized reverse-engineering and firmware-analysis workb
 
 Work inside `/data/specimens/<project-name>` whenever analyzing a real target. Use `/workspace` only for temporary scratch, generic tooling experiments, or outputs that are not tied to a specific case.
 
+The preferred entry point for a human operator is:
+
+```bash
+./shell.sh
+```
+
+It opens an interactive shell inside `REA-opencode` at `/data/specimens`.
+
 Recommended project layout:
 
 ```text
