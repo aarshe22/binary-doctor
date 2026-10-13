@@ -17,4 +17,5 @@ docker exec REA command -v triage-specimen
 docker exec REA command -v qemu-aarch64-static
 docker exec REA command -v gdb-multiarch
 docker exec REA command -v unblob
+test -x ./shell.sh
 docker exec REA-opencode opencode --version
